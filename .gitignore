@@ -123,3 +123,8 @@ dmypy.json
 # Pyre type checker
 .pyre/
 .DS_Store
+
+# mannul testing
+DeepFM.h5
+criteo_large_sample.txt
+run_classification_criteo.ipynb

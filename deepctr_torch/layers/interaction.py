@@ -19,7 +19,7 @@ class FM(nn.Module):
       References
         - [Factorization Machines](https://www.csie.ntu.edu.tw/~b97053/paper/Rendle2010FM.pdf)
     """
-
+    # litez the FM module seems like a scheleton simply for a computation; it is more likely a plain func
     def __init__(self):
         super(FM, self).__init__()
 

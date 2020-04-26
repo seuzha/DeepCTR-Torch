@@ -30,7 +30,6 @@ if __name__ == "__main__":
     fixlen_feature_columns = [SparseFeat(feat, data[feat].nunique())
                               for feat in sparse_features] + [DenseFeat(feat, 1, )
                                                               for feat in dense_features]
-
     dnn_feature_columns = fixlen_feature_columns
     linear_feature_columns = fixlen_feature_columns
 
@@ -40,7 +39,7 @@ if __name__ == "__main__":
     # 3.generate input data for model
 
     train, test = train_test_split(data, test_size=0.2)
-
+    # litez: a dictionary of pd.Series
     train_model_input = {name: train[name] for name in feature_names}
     test_model_input = {name: test[name] for name in feature_names}
 
@@ -58,8 +57,14 @@ if __name__ == "__main__":
 
     model.compile("adagrad", "binary_crossentropy",
                   metrics=["binary_crossentropy", "auc"], )
+    # litez train[['label']].values gives 2-d np array of shape (# of data samples, 1)
     model.fit(train_model_input, train[target].values,
               batch_size=32, epochs=10, validation_split=0.0, verbose=2)
+
+    # testing on saving/loading models
+    # torch.save(model, 'DeepFM.h5')
+    # model = torch.load('DeepFM.h5')
+    # print("load successfully")
 
     pred_ans = model.predict(test_model_input, 256)
     print("")

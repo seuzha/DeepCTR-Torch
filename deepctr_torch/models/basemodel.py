@@ -25,6 +25,9 @@ from ..layers.utils import slice_arrays
 
 
 class Linear(nn.Module):
+    """
+    litez learn linear effects
+    """
     def __init__(self, feature_columns, feature_index, init_std=0.0001, device='cpu'):
         super(Linear, self).__init__()
         self.feature_index = feature_index
@@ -45,6 +48,7 @@ class Linear(nn.Module):
         #              self.sparse_feature_columns}
         #         )
         # .to("cuda:1")
+        # litez: seems that embedding_dict has bee initialized when calling create_embedding_matrix()
         for tensor in self.embedding_dict.values():
             nn.init.normal_(tensor.weight, mean=0, std=init_std)
 
@@ -54,11 +58,11 @@ class Linear(nn.Module):
             torch.nn.init.normal_(self.weight, mean=0, std=init_std)
 
     def forward(self, X):
-
+        # litez: each emlement in the list is of shape(batch, 1, embedding_size=1)
         sparse_embedding_list = [self.embedding_dict[feat.embedding_name](
             X[:, self.feature_index[feat.name][0]:self.feature_index[feat.name][1]].long()) for
             feat in self.sparse_feature_columns]
-
+        # litez: each emlement in the list is of shape(batch, 1)
         dense_value_list = [X[:, self.feature_index[feat.name][0]:self.feature_index[feat.name][1]] for feat in
                             self.dense_feature_columns]
 
@@ -70,6 +74,7 @@ class Linear(nn.Module):
         if len(sparse_embedding_list) > 0 and len(dense_value_list) > 0:
             linear_sparse_logit = torch.sum(
                 torch.cat(sparse_embedding_list, dim=-1), dim=-1, keepdim=False)
+            # litez: is there a straight way to create a linear layer?
             linear_dense_logit = torch.cat(
                 dense_value_list, dim=-1).matmul(self.weight)
             linear_logit = linear_sparse_logit + linear_dense_logit
@@ -98,7 +103,7 @@ class BaseModel(nn.Module):
         self.reg_loss = torch.zeros((1,), device=device)
         self.aux_loss = torch.zeros((1,), device=device)
         self.device = device  # device
-
+        # litez type(self.feature_index) = OrderedDict: {feature_name:(start, start+dimension)}
         self.feature_index = build_input_features(
             linear_feature_columns + dnn_feature_columns)
         self.dnn_feature_columns = dnn_feature_columns
@@ -147,6 +152,7 @@ class BaseModel(nn.Module):
         """
         if isinstance(x, dict):
             x = [x[feature] for feature in self.feature_index]
+        # litez: x is a list of pd.Series
         if validation_data:
             if len(validation_data) == 2:
                 val_x, val_y = validation_data
@@ -177,6 +183,7 @@ class BaseModel(nn.Module):
         else:
             val_x = []
             val_y = []
+        # litez: revise the shape of each feature to two-dim array
         for i in range(len(x)):
             if len(x[i].shape) == 1:
                 x[i] = np.expand_dims(x[i], axis=1)
@@ -191,6 +198,8 @@ class BaseModel(nn.Module):
             dataset=train_tensor_data, shuffle=shuffle, batch_size=batch_size)
 
         print(self.device, end="\n")
+        #litez: set the module to training mode
+        # does it instantiate a module (can be a child module inheriting BaseModel?
         model = self.train()
         loss_func = self.loss_func
         optim = self.optim
@@ -259,6 +268,7 @@ class BaseModel(nn.Module):
                         eval_str += " - val_" + name + \
                                     ": {0: .4f}".format(result)
                 print(eval_str)
+        return self
 
     def evaluate(self, x, y, batch_size=256):
         """
@@ -282,6 +292,7 @@ class BaseModel(nn.Module):
         :return: Numpy array(s) of predictions.
         """
         model = self.eval()
+        #litez: self.feature_index is of OrderedDict([('C1', (0, 1)), ('C2', (1, 2))
         if isinstance(x, dict):
             x = [x[feature] for feature in self.feature_index]
         for i in range(len(x)):

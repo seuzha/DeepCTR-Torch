@@ -31,7 +31,6 @@ class DeepFM(BaseModel):
     :param task: str, ``"binary"`` for  binary logloss or  ``"regression"`` for regression loss
     :param device: str, ``"cpu"`` or ``"cuda:0"``
     :return: A PyTorch model instance.
-    
     """
 
     def __init__(self,
@@ -54,11 +53,11 @@ class DeepFM(BaseModel):
             dnn_hidden_units) > 0
         if use_fm:
             self.fm = FM()
-
         if self.use_dnn:
             self.dnn = DNN(self.compute_input_dim(dnn_feature_columns), dnn_hidden_units,
                            activation=dnn_activation, l2_reg=l2_reg_dnn, dropout_rate=dnn_dropout, use_bn=dnn_use_bn,
                            init_std=init_std, device=device)
+            # litez: check why not need bias here in Linear layer
             self.dnn_linear = nn.Linear(
                 dnn_hidden_units[-1], 1, bias=False).to(device)
 
@@ -68,19 +67,23 @@ class DeepFM(BaseModel):
         self.to(device)
 
     def forward(self, X):
-
+        #litez: each element of sparse_embedding_list is of shape(batch_size, 1, embedding_dim)
+        #litez: each element of dense_value_list is of shape(batch_size, 1)
         sparse_embedding_list, dense_value_list = self.input_from_feature_columns(X, self.dnn_feature_columns,
                                                                                   self.embedding_dict)
+        #litez: logit is of shape(batch_size, 1)
+        # litez: it is a bias term
         logit = self.linear_model(X)
-
         if self.use_fm and len(sparse_embedding_list) > 0:
+            # litez: fm_input has shape (batch_size, num_of_sparse_features, embedding_dim)
             fm_input = torch.cat(sparse_embedding_list, dim=1)
+            # litez: self.fm() returns a tensor of shape (batch_size, 1)
             logit += self.fm(fm_input)
-
         if self.use_dnn:
             dnn_input = combined_dnn_input(
                 sparse_embedding_list, dense_value_list)
             dnn_output = self.dnn(dnn_input)
+            # litez dnn_logit is of (batch_size, 1)
             dnn_logit = self.dnn_linear(dnn_output)
             logit += dnn_logit
 
