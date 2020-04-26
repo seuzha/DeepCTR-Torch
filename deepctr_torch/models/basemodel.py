@@ -98,8 +98,6 @@ class BaseModel(nn.Module):
 
         super(BaseModel, self).__init__()
 
-        self.dnn_feature_columns = dnn_feature_columns
-
         self.reg_loss = torch.zeros((1,), device=device)
         self.aux_loss = torch.zeros((1,), device=device)
         self.device = device  # device
