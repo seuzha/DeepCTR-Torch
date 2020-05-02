@@ -9,7 +9,8 @@ from deepctr_torch.inputs import SparseFeat, DenseFeat, get_feature_names
 from deepctr_torch.models import *
 
 if __name__ == "__main__":
-    data = pd.read_csv('./criteo_sample.txt')
+    # data = pd.read_csv('./criteo_sample.txt')
+    data = pd.read_csv('./criteo_large_sample.txt')
 
     sparse_features = ['C' + str(i) for i in range(1, 27)]
     dense_features = ['I' + str(i) for i in range(1, 14)]
@@ -38,7 +39,7 @@ if __name__ == "__main__":
 
     # 3.generate input data for model
 
-    train, test = train_test_split(data, test_size=0.2)
+    train, test = train_test_split(data, test_size=0.2, random_state=2020, shuffle=False)
     # litez: a dictionary of pd.Series
     train_model_input = {name: train[name] for name in feature_names}
     test_model_input = {name: test[name] for name in feature_names}
@@ -50,23 +51,31 @@ if __name__ == "__main__":
     if use_cuda and torch.cuda.is_available():
         print('cuda ready...')
         device = 'cuda:0'
+    print("data processing ready. calling DeepFM...")
 
+    # model = DeepFM(linear_feature_columns=linear_feature_columns, dnn_feature_columns=dnn_feature_columns,
+    #                task='binary',
+    #                l2_reg_embedding=1e-5, device=device)
     model = DeepFM(linear_feature_columns=linear_feature_columns, dnn_feature_columns=dnn_feature_columns,
-                   task='binary',
+                   task='binary', dnn_hidden_units=(()),
                    l2_reg_embedding=1e-5, device=device)
 
     model.compile("adagrad", "binary_crossentropy",
                   metrics=["binary_crossentropy", "auc"], )
+
     # litez train[['label']].values gives 2-d np array of shape (# of data samples, 1)
+    # model.fit(train_model_input, train[target].values,
+    #           batch_size=32, epochs=3, validation_split=0.0, verbose=2)
+
     model.fit(train_model_input, train[target].values,
-              batch_size=32, epochs=10, validation_split=0.0, verbose=2)
+            batch_size=4096, epochs=3, validation_split=0.0, verbose=2)
 
     # testing on saving/loading models
-    # torch.save(model, 'DeepFM.h5')
+    # torch.save(model, 'DNN.h5')
     # model = torch.load('DeepFM.h5')
     # print("load successfully")
 
-    pred_ans = model.predict(test_model_input, 256)
+    pred_ans = model.predict(test_model_input, 4096)
     print("")
     print("test LogLoss", round(log_loss(test[target].values, pred_ans), 4))
     print("test AUC", round(roc_auc_score(test[target].values, pred_ans), 4))

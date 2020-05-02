@@ -214,39 +214,42 @@ class BaseModel(nn.Module):
             # if abs(loss_last - loss_now) < 0.0
             train_result = {}
             try:
-                with tqdm(enumerate(train_loader), disable=verbose != 1) as t:
-                    for index, (x_train, y_train) in t:
-                        x = x_train.to(self.device).float()
-                        y = y_train.to(self.device).float()
+                for index, (x_train, y_train) in tqdm(enumerate(train_loader),
+                            total=len(train_loader)):
+                    x = x_train.to(self.device).float()
+                    y = y_train.to(self.device).float()
 
-                        y_pred = model(x).squeeze()
+                    y_pred = model(x).squeeze()
 
-                        optim.zero_grad()
-                        loss = loss_func(y_pred, y.squeeze(), reduction='sum')
+                    optim.zero_grad()
+                    loss = loss_func(y_pred, y.squeeze(), reduction='sum')
 
-                        total_loss = loss + self.reg_loss + self.aux_loss
+                    total_loss = loss + self.reg_loss + self.aux_loss
 
-                        loss_epoch += loss.item()
-                        total_loss_epoch += total_loss.item()
-                        total_loss.backward(retain_graph=True)
-                        optim.step()
+                    loss_epoch += loss.item()
+                    total_loss_epoch += total_loss.item()
+                    total_loss.backward(retain_graph=True)
+                    optim.step()
+                    if verbose > 0:
+                        for name, metric_fun in self.metrics.items():
+                            if name not in train_result:
+                                train_result[name] = []
 
-                        if verbose > 0:
-                            for name, metric_fun in self.metrics.items():
-                                if name not in train_result:
-                                    train_result[name] = []
-
-                                if use_double:
-                                    train_result[name].append(metric_fun(
-                                        y.cpu().data.numpy(), y_pred.cpu().data.numpy().astype("float64")))
-                                else:
-                                    train_result[name].append(metric_fun(
-                                        y.cpu().data.numpy(), y_pred.cpu().data.numpy()))
+                            if use_double:
+                                train_result[name].append(metric_fun(
+                                    y.cpu().data.numpy(),
+                                    y_pred.cpu().data.numpy().astype("float64"),
+                                    labels=[0, 1])
+                                )
+                            else:
+                                train_result[name].append(metric_fun(
+                                    y.cpu().data.numpy(),
+                                    y_pred.cpu().data.numpy(),
+                                    labels=[0, 1])
+                                )
 
             except KeyboardInterrupt:
-                t.close()
                 raise
-            t.close()
 
             epoch_time = int(time.time() - start_time)
             if verbose > 0:
