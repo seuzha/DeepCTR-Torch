@@ -171,7 +171,7 @@ class CIN(nn.Module):
         - [Lian J, Zhou X, Zhang F, et al. xDeepFM: Combining Explicit and Implicit Feature Interactions for Recommender Systems[J]. arXiv preprint arXiv:1803.05170, 2018.] (https://arxiv.org/pdf/1803.05170.pdf)
     """
 
-    def __init__(self, field_size, layer_size=(128, 128), activation='relu', split_half=True, l2_reg=1e-5, seed=1024,
+    def __init__(self, field_size, layer_size=(256, 128), activation='relu', split_half=True, l2_reg=1e-5, seed=1024,
                  device='cpu'):
         super(CIN, self).__init__()
         if len(layer_size) == 0:
@@ -217,6 +217,8 @@ class CIN(nn.Module):
             x = torch.einsum(
                 'bhd,bmd->bhmd', hidden_nn_layers[-1], hidden_nn_layers[0])
             # x.shape = (batch_size , hi * m, dim)
+            # litez: may want to try
+            # x = x.reshape(batch_size, -1, dim)
             x = x.reshape(
                 batch_size, hidden_nn_layers[-1].shape[1] * hidden_nn_layers[0].shape[1], dim)
             # x.shape = (batch_size , hi, dim)
@@ -360,6 +362,7 @@ class InteractingLayer(nn.Module):
         if self.use_res:
             self.W_Res = nn.Parameter(torch.Tensor(
                 embedding_size, self.att_embedding_size * self.head_num))
+        # litez check whether nn.Parameter initializes the weights at definition time
         for tensor in self.parameters():
             nn.init.normal_(tensor, mean=0.0, std=0.05)
 
@@ -373,6 +376,8 @@ class InteractingLayer(nn.Module):
 
         querys = torch.tensordot(inputs, self.W_Query,
                                  dims=([-1], [0]))  # None F D*head_num
+        #litez v.s.
+        # querys = torch.einsum('bfd, dg->bfg', (inputs, self.W_Query))
         keys = torch.tensordot(inputs, self.W_key, dims=([-1], [0]))
         values = torch.tensordot(inputs, self.W_Value, dims=([-1], [0]))
 
