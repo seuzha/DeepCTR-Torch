@@ -7,6 +7,7 @@ import torch.nn.functional as F
 from ..layers.activation import activation_layer
 from ..layers.core import Conv2dSame
 from ..layers.sequence import KMaxPooling
+from ..inputs import SparseFeat
 
 
 class FM(nn.Module):
@@ -19,12 +20,39 @@ class FM(nn.Module):
       References
         - [Factorization Machines](https://www.csie.ntu.edu.tw/~b97053/paper/Rendle2010FM.pdf)
     """
-    # litez the FM module seems like a scheleton simply for a computation; it is more likely a plain func
-    def __init__(self):
-        super(FM, self).__init__()
 
-    def forward(self, inputs):
-        fm_input = inputs
+    def __init__(self, *args):
+        super(FM, self).__init__()
+        if len(args) > 0:
+            [feature_columns, init_std, device] = args[:3]
+            self.sparse_feature_columns = list(
+                filter(lambda x: isinstance(x, SparseFeat), feature_columns)) if len(feature_columns) else []
+            if len(self.sparse_feature_columns) > 0:
+                _embedding_dim = self.sparse_feature_columns[0].embedding_dim
+            else:
+                # 2-order interactions of dense features only
+                _embedding_dim = 4
+            self.dense_feature_weight = nn.Parameter(torch.Tensor(1, _embedding_dim)).to(device)
+            torch.nn.init.normal_(self.dense_feature_weight, mean=0, std=init_std)
+
+    def forward(self, *args):
+        """
+        when len(arg)==1:
+        args[0]:(batch_size, # of sparse feature fileds, embedding_dim)
+
+        when len(arg)==2:
+        args[0]: (batch, # of dense feature fields)
+        args[1]: (batch_size, # of sparse feature fileds, embedding_dim)
+        """
+
+        if len(args) == 1:
+            fm_input = args[0]
+        elif len(args) == 2:
+            dense_inputs, sparse_inputs = args[:2]
+            dense_inputs = torch.matmul(dense_inputs.unsqueeze(-1), self.dense_feature_weight)
+            fm_input = torch.cat([sparse_inputs, dense_inputs], axis=1) #(batch_size, # of all feature fields, embedding_dim)
+        else:
+            raise ValueError("arg list exceeds the required length!")
 
         square_of_sum = torch.pow(torch.sum(fm_input, dim=1, keepdim=True), 2)
         sum_of_square = torch.sum(fm_input * fm_input, dim=1, keepdim=True)

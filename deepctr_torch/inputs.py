@@ -173,6 +173,7 @@ def create_embedding_matrix(feature_columns, init_std=0.0001, linear=False, spar
     #     embedding_dict[feat.embedding_name] = nn.EmbeddingBag(
     #         feat.dimension, embedding_size, sparse=sparse, mode=feat.combiner)
 
+    #litez: is the initilization in-place?
     for tensor in embedding_dict.values():
         nn.init.normal_(tensor.weight, mean=0, std=init_std)
 

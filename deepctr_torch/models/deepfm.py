@@ -52,7 +52,7 @@ class DeepFM(BaseModel):
         self.use_dnn = len(dnn_feature_columns) > 0 and len(
             dnn_hidden_units) > 0
         if use_fm:
-            self.fm = FM()
+            self.fm = FM(dnn_feature_columns, init_std, device)
         if self.use_dnn:
             self.dnn = DNN(self.compute_input_dim(dnn_feature_columns), dnn_hidden_units,
                            activation=dnn_activation, l2_reg=l2_reg_dnn, dropout_rate=dnn_dropout, use_bn=dnn_use_bn,
@@ -67,6 +67,7 @@ class DeepFM(BaseModel):
         self.to(device)
 
     def forward(self, X):
+        #litez: X: (batch_size, #of features)
         #litez: each element of sparse_embedding_list is of shape(batch_size, 1, embedding_dim)
         #litez: each element of dense_value_list is of shape(batch_size, 1)
         sparse_embedding_list, dense_value_list = self.input_from_feature_columns(X, self.dnn_feature_columns,
@@ -74,11 +75,10 @@ class DeepFM(BaseModel):
         #litez: logit is of shape(batch_size, 1)
         # litez: it is a bias term
         logit = self.linear_model(X)
-        if self.use_fm and len(sparse_embedding_list) > 0:
-            # litez: fm_input has shape (batch_size, num_of_sparse_features, embedding_dim)
-            fm_input = torch.cat(sparse_embedding_list, dim=1)
-            # litez: self.fm() returns a tensor of shape (batch_size, 1)
-            logit += self.fm(fm_input)
+        if self.use_fm and len(sparse_embedding_list) > 0 and len(dense_value_list) >0:
+            sparse_inputs = torch.cat(sparse_embedding_list, dim=1) #(batch_size, num_of_sparse_features, embedding_dim)
+            dense_inputs = torch.cat(dense_value_list, dim=1) #(batch_size, num_of_dense_features)
+            logit += self.fm(dense_inputs, sparse_inputs) #(batch_size, 1)
         if self.use_dnn:
             dnn_input = combined_dnn_input(
                 sparse_embedding_list, dense_value_list)
